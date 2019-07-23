@@ -30,6 +30,11 @@ type LWCContainer() as this =
   let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
   let keys = ResizeArray<Keys>()
 
+  let timer = new Timer(Interval=5)
+  let mutable acceleration = 0.f
+  let mutable ticks = 0
+  let maxTicks = 200
+
   do
     controls.CollectionChanged.Add(fun e ->
       for i in e.NewItems do
@@ -46,6 +51,41 @@ type LWCContainer() as this =
     controls.Add(zoomDown)
     controls.Add(create)
     controls.Add(ship)
+
+    timer.Tick.Add(fun _ ->
+      ship.WV.TranslateW(0.f, - single acceleration)
+      printfn "%A" acceleration
+      if (keys.Count <> 0) then
+        ticks <- 0
+      if (keys.Contains(Keys.W)) then
+        acceleration <- acceleration + 0.2f
+      else
+        acceleration <- acceleration - (10.f / single maxTicks) // maxacceleration / maxticks
+
+      if (acceleration > 10.f) then
+        acceleration <- 10.f
+      else if (acceleration < 0.f) then
+        acceleration <- 0.f
+
+      let cx, cy = ship.Width / 2.f, ship.Height / 2.f
+      keys |> Seq.iter(fun c ->
+        match c with
+        | Keys.D ->
+          ship.WV.TranslateW(cx, cy)
+          ship.WV.RotateW(6.f)
+          ship.WV.TranslateW(-cx, -cy)
+        | Keys.A ->
+          ship.WV.TranslateW(cx, cy)
+          ship.WV.RotateW(-6.f)
+          ship.WV.TranslateW(-cx, -cy)
+        | _ -> ()
+      )
+      this.Invalidate()
+      ticks <- ticks + 1
+      if (ticks = maxTicks) then
+        acceleration <- 0.f
+        timer.Stop()
+    )
 
   member this.MoveView(direction) =
     controls |> Seq.iter(fun c ->
@@ -160,22 +200,8 @@ type LWCContainer() as this =
     let keyCode = e.KeyCode
     if (not (keys.Contains(keyCode))) then
       keys.Add(keyCode)
-    let cx, cy = ship.Width / 2.f, ship.Height / 2.f
-    keys |> Seq.iter(fun c ->
-      match c with
-      | Keys.W ->
-        ship.WV.TranslateW(0.f, -10.f)
-      | Keys.D ->
-        ship.WV.TranslateW(cx, cy)
-        ship.WV.RotateW(10.f)
-        ship.WV.TranslateW(-cx, -cy)
-      | Keys.A ->
-        ship.WV.TranslateW(cx, cy)
-        ship.WV.RotateW(-10.f)
-        ship.WV.TranslateW(-cx, -cy)
-      | _ -> ()
-    )
-    this.Invalidate()
+    if (not timer.Enabled) then
+      timer.Start()
 
   override this.OnKeyUp(e) =
     let keyCode = e.KeyCode
@@ -186,8 +212,8 @@ type LWCContainer() as this =
 and LWButton() =
   inherit LWCControl()
 
-  let bgcolor = Color.DarkGreen
   let mutable op = "none"
+  let bgcolor = Color.DarkGreen
   let font = new Font("Consolas", 9.f)
 
   member this.Op
