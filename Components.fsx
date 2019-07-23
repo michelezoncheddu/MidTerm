@@ -1,110 +1,16 @@
+#load "LWC.fsx"
+
+open LWC
+
 open System.Windows.Forms
 open System.Drawing
 
-// Library
-type WVMatrix() =
-  let wv = new Drawing2D.Matrix()
-  let vw = new Drawing2D.Matrix()
-
-  member this.TranslateW(tx, ty) =
-    wv.Translate(tx, ty)
-    vw.Translate(-tx, -ty, Drawing2D.MatrixOrder.Append)
-
-  member this.ScaleW(sx, sy) =
-    wv.Scale(sx, sy)
-    vw.Scale(1.f / sx, 1.f / sy, Drawing2D.MatrixOrder.Append)
-
-  member this.RotateW(a) =
-    wv.Rotate(a)
-    vw.Rotate(-a, Drawing2D.MatrixOrder.Append)
-
-  member this.RotateV(a) =
-    vw.Rotate(a)
-    wv.Rotate(-a, Drawing2D.MatrixOrder.Append)
-
-  member this.TranslateV(tx, ty) =
-    vw.Translate(tx, ty)
-    wv.Translate(-tx, -ty, Drawing2D.MatrixOrder.Append)
-
-  member this.ScaleV(sx, sy) =
-    vw.Scale(sx, sy)
-    wv.Scale(1.f / sx, 1.f / sy, Drawing2D.MatrixOrder.Append)
-  
-  member this.TransformPointV(p:PointF) =
-    let a = [| p |]
-    vw.TransformPoints(a)
-    a.[0]
-
-  member this.TransformPointW(p:PointF) =
-    let a = [| p |]
-    wv.TransformPoints(a)
-    a.[0]
-  
-  member this.WV with get() = wv
-
-// Control
-type LWCControl() =
-  let wv = WVMatrix() // matrice mondo-vista
-  let mutable pos = PointF() // angolo in alto a sinistra
-  let mutable size = SizeF(0.f, 0.f)
-
-  let mutable parent : LWCContainer option = None
-  
-  member this.WV with get() = wv
-
-  member this.Parent
-    with get() = parent
-    and set(v) = parent <- v
-
-  abstract OnPaint : PaintEventArgs -> unit // return unit perche' le callback non resituiscono nulla
-  default this.OnPaint(e) = ()
-
-  abstract OnMouseDown : MouseEventArgs -> unit
-  default this.OnMouseDown(e) = ()
-
-  abstract OnMouseUp : MouseEventArgs -> unit
-  default this.OnMouseUp(e) = ()
-
-  abstract OnMouseMove : MouseEventArgs -> unit
-  default this.OnMouseMove(e) = ()
-
-  member this.Invalidate() =
-    match parent with
-    | Some p -> p.Invalidate()
-    | None -> ()
-
-  member this.HitTest(p:Point) =
-    let pt = wv.TransformPointV(PointF(single p.X, single p.Y))
-    let boundingbox = RectangleF(0.f, 0.f, size.Width, size.Height)
-    boundingbox.Contains(pt)
-
-  member this.Size
-    with get() = size
-    and set(v) =
-      size <- v
-      this.Invalidate()
-
-  member this.Position
-    with get() = pos
-    and set(v) =
-      wv.TranslateV(pos.X, pos.Y) // traslo la vista
-      pos <- v // applico le trasformazioni
-      wv.TranslateV(-pos.X, -pos.Y) // ripristino la vista
-      this.Invalidate()
-  
-  member this.PositionInt with get() = Point(int pos.X, int pos.Y)
-  member this.SizeInt with get() = Size(int size.Width, int size.Height)
-  member this.Top = pos.Y
-  member this.Left = pos.X
-  member this.Width = size.Width
-  member this.Height = size.Height
-
 // Container
-and LWCContainer() as this =
+type LWCContainer() as this =
   inherit UserControl()
   
   let arrowSize = SizeF(20.f, 20.f)
-  let buttonSize = SizeF(70.f, 30.f)
+  let buttonSize = SizeF(100.f, 30.f)
   let planetSize = SizeF(120.f, 120.f)
 
   let up = LWButton(Position=PointF(30.f, 10.f), Size=arrowSize, Op="up")
@@ -112,12 +18,11 @@ and LWCContainer() as this =
   let left = LWButton(Position=PointF(10.f, 30.f), Size=arrowSize, Op="left")
   let right = LWButton(Position=PointF(50.f, 30.f), Size=arrowSize, Op="right")
 
-  let create = LWButton(Position=PointF(20.f, 80.f), Size=buttonSize, Op="create planet")
-
-  let rotate = LWButton(Position=PointF(20.f, 120.f), Size=buttonSize, Op="rotate")
-  let zoomUp = LWButton(Position=PointF(20.f, 160.f), Size=buttonSize, Op="zoom +")
-  let zoomDown = LWButton(Position=PointF(20.f, 200.f), Size=buttonSize, Op="zoom -")
-
+  let create = LWButton(Position=PointF(10.f, 80.f), Size=buttonSize, Op="create planet")
+  let rotateCW = LWButton(Position=PointF(10.f, 120.f), Size=buttonSize, Op="rotate cw")
+  let rotateCCW = LWButton(Position=PointF(10.f, 160.f), Size=buttonSize, Op="rotate ccw")
+  let zoomUp = LWButton(Position=PointF(10.f, 200.f), Size=buttonSize, Op="zoom +")
+  let zoomDown = LWButton(Position=PointF(10.f, 240.f), Size=buttonSize, Op="zoom -")
 
   let ship = LWShip(Position=PointF(100.f, 100.f), Size=SizeF(60.f, 83.f))
 
@@ -127,18 +32,19 @@ and LWCContainer() as this =
   do
     controls.CollectionChanged.Add(fun e ->
       for i in e.NewItems do
-        (i :?> LWCControl).Parent <- Some(this)
+        (i :?> LWCControl).Parent <- Some(this :> UserControl)
     )
     this.SetStyle(ControlStyles.AllPaintingInWmPaint ||| ControlStyles.OptimizedDoubleBuffer, true)
-    controls.Add(ship)
     controls.Add(up)
     controls.Add(down)
     controls.Add(left)
     controls.Add(right)
-    controls.Add(rotate)
+    controls.Add(rotateCW)
+    controls.Add(rotateCCW)
     controls.Add(zoomUp)
     controls.Add(zoomDown)
     controls.Add(create)
+    controls.Add(ship)
 
   member this.LWControls with get() = controls
 
@@ -155,14 +61,14 @@ and LWCContainer() as this =
         | _ -> ()
     )
 
-  member this.RotateView(sign) =
+  member this.RotateView(direction) =
     controls |> Seq.iter(fun c ->
       match c with
       | :? LWButton -> ()
       | _ ->
         let client = this.ClientSize
         c.WV.TranslateV(client.Width / 2 |> single, client.Height / 2 |> single)
-        if (sign = "clockwise") then
+        if (direction = "clockwise") then
           c.WV.RotateV(-5.f)
         else
           c.WV.RotateV(5.f)
@@ -271,7 +177,7 @@ and LWButton() =
 
   let bgcolor = Color.DarkGreen
   let mutable op = "none"
-  let font = new Font("Calibri", 8.f)
+  let font = new Font("Consolas", 9.f)
 
   member this.Op
     with get() = op
@@ -296,17 +202,19 @@ and LWButton() =
       g.FillPolygon(Brushes.Black, triangle)
     | _ ->
       g.FillRectangle(brush, 0.f, 0.f, this.Width, this.Height)
-      g.DrawString(op.ToUpper(), font, Brushes.White, 5.f, 5.f)
+      g.DrawString(op.ToUpper(), font, Brushes.White, 5.f, 7.f)
 
   override this.OnMouseDown(e) =
     match this.Parent with
-    | Some parent ->
+    | Some p ->
+      let parent = p :?> LWCContainer
       match op with
       | "up" -> parent.MoveView("up")
       | "down" -> parent.MoveView("down")
       | "left" -> parent.MoveView("left")
       | "right" -> parent.MoveView("right")
-      | "rotate" -> parent.RotateView("clockwise")
+      | "rotate cw" -> parent.RotateView("clockwise")
+      | "rotate ccw" -> parent.RotateView("counterclockwise")
       | "zoom +" -> parent.ZoomView("up")
       | "zoom -" -> parent.ZoomView("down")
       | "create planet" -> parent.CreatePlanet()
