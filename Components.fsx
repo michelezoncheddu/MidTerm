@@ -28,6 +28,7 @@ type LWCContainer() as this =
 
   let mutable drag = None
   let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
+  let keys = ResizeArray<Keys>()
 
   do
     controls.CollectionChanged.Add(fun e ->
@@ -46,18 +47,16 @@ type LWCContainer() as this =
     controls.Add(create)
     controls.Add(ship)
 
-  member this.LWControls with get() = controls
-
   member this.MoveView(direction) =
     controls |> Seq.iter(fun c ->
       match c with
       | :? LWButton -> ()
       | _ ->
         match direction with
-        | "up" -> c.WV.TranslateV(0.f, 10.f)
-        | "down" -> c.WV.TranslateV(0.f, -10.f)
-        | "left" -> c.WV.TranslateV(10.f, 0.f)
-        | "right" -> c.WV.TranslateV(-10.f, 0.f)
+        | "up" -> c.WV.TranslateV(0.f, -10.f)
+        | "down" -> c.WV.TranslateV(0.f, 10.f)
+        | "left" -> c.WV.TranslateV(-10.f, 0.f)
+        | "right" -> c.WV.TranslateV(10.f, 0.f)
         | _ -> ()
     )
 
@@ -81,41 +80,43 @@ type LWCContainer() as this =
       | :? LWButton -> ()
       | _ ->
         let cx, cy = this.ClientSize.Width / 2 |> single, this.ClientSize.Height / 2 |> single
-        // po è la differenza tra il centro e il vertice corrente del controllo
+        // po is the difference between the control center and the current control vertex 
         let po = PointF(cx, cy) |> c.WV.TransformPointV
         if (sign = "up") then
           c.WV.ScaleW(1.1f, 1.1f)
         else
           c.WV.ScaleW(1.f / 1.1f, 1.f / 1.1f)
-        // pn è la differenza tra il centro e il nuovo vertice del controllo (zoommato)
+        // pn is the difference between the control center and the new control vertex (scaled)
         let pn = PointF(cx, cy) |> c.WV.TransformPointV
         c.WV.TranslateW(pn.X - po.X, pn.Y - po.Y)
     )
 
   member this.CreatePlanet() =
     let dialog = new OpenFileDialog()
-    dialog.Filter <- "|*.bmp;*.jpg;*.gif;*.png"
+    dialog.Filter <- "|*.jpg;*.jpeg;*.gif;*.png"
     if dialog.ShowDialog() = DialogResult.OK then
       let image : Bitmap = new Bitmap(dialog.FileName)
-      controls.Add(LWPlanet(Position=PointF(20.f, 20.f), Size=planetSize, Image=image))
+      controls.Add(LWPlanet(
+                    Position=PointF(
+                              single this.Width / 2.f - planetSize.Width / 2.f,
+                              single this.Height / 2.f - planetSize.Height / 2.f),
+                    Size=planetSize,
+                    Image=image)
+                  )
 
   override this.OnMouseDown(e) =
     let c = controls |> Seq.tryFindBack(fun c -> c.HitTest(e.Location))
     match c with
     | Some c ->
       match c with
-      | :? LWButton ->
-        let p = c.WV.TransformPointV(PointF(single e.X, single e.Y))
-        let evt = MouseEventArgs(e.Button, e.Clicks, int p.X, int p.Y, e.Delta)
-        c.OnMouseDown(evt)
-        this.Invalidate()
+      | :? LWButton -> () // button not draggable
       | _ ->
         let dx, dy = e.X - int c.Left, e.Y - int c.Top
         drag <- Some(c, dx, dy)
-        let p = c.WV.TransformPointV(PointF(single e.X, single e.Y))
-        let evt = MouseEventArgs(e.Button, e.Clicks, int p.X, int p.Y, e.Delta)
-        c.OnMouseDown(evt)
-        this.Invalidate()
+      let p = c.WV.TransformPointV(PointF(single e.X, single e.Y))
+      let evt = MouseEventArgs(e.Button, e.Clicks, int p.X, int p.Y, e.Delta)
+      c.OnMouseDown(evt)
+      this.Invalidate()
     | None -> ()
     let i = controls.IndexOf(ship)
     controls.Move(i, controls.Count - 1)
@@ -151,25 +152,35 @@ type LWCContainer() as this =
       let bkg = e.Graphics.Save()
       let evt = new PaintEventArgs(e.Graphics, Rectangle(c.PositionInt, c.SizeInt))
       e.Graphics.Transform <- c.WV.WV
-      c.OnPaint(evt) // quello che faccio qua dentro e' trasparente al resto dei controlli
+      c.OnPaint(evt)
       e.Graphics.Restore(bkg)
     )
 
   override this.OnKeyDown(e) =
-    match e.KeyCode with
-    | Keys.W -> ship.WV.TranslateW(0.f, -10.f)
-    | Keys.D ->
-      let cx, cy = ship.Width / 2.f, ship.Height / 2.f
-      ship.WV.TranslateW(cx, cy)
-      ship.WV.RotateW(10.f)
-      ship.WV.TranslateW(-cx, -cy)
-    | Keys.A ->
-      let cx, cy = ship.Width / 2.f, ship.Height / 2.f
-      ship.WV.TranslateW(cx, cy)
-      ship.WV.RotateW(-10.f)
-      ship.WV.TranslateW(-cx, -cy)
-    | _ -> ()
+    let keyCode = e.KeyCode
+    if (not (keys.Contains(keyCode))) then
+      keys.Add(keyCode)
+    let cx, cy = ship.Width / 2.f, ship.Height / 2.f
+    keys |> Seq.iter(fun c ->
+      match c with
+      | Keys.W ->
+        ship.WV.TranslateW(0.f, -10.f)
+      | Keys.D ->
+        ship.WV.TranslateW(cx, cy)
+        ship.WV.RotateW(10.f)
+        ship.WV.TranslateW(-cx, -cy)
+      | Keys.A ->
+        ship.WV.TranslateW(cx, cy)
+        ship.WV.RotateW(-10.f)
+        ship.WV.TranslateW(-cx, -cy)
+      | _ -> ()
+    )
     this.Invalidate()
+
+  override this.OnKeyUp(e) =
+    let keyCode = e.KeyCode
+    if (keys.Contains(keyCode)) then
+      keys.Remove(keyCode) |> ignore
 
 // Buttons
 and LWButton() =
