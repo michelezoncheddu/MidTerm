@@ -13,13 +13,15 @@ type LWCContainer() as this =
   let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
   let pressedKeys = ResizeArray<Keys>()
 
-  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(60.f, 83.f))
+  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(75.f, 150.f))
+  
   let planetSize = SizeF(200.f, 200.f)
 
   let timer = new Timer(Interval=15)
   let mutable acceleration = PointF(0.f, 0.f)
-  let maxAcceleration = 8.f
-  let mutable angle = 90
+  let maxAcceleration = 7.f
+  let mutable shipAngle = 90
+  let mutable viewAngle = 0
   let mutable ticks = 0
   let maxTicks = 200
 
@@ -35,11 +37,13 @@ type LWCContainer() as this =
     controls.Add(ship)
 
     timer.Tick.Add(fun _ ->
-      let rad = System.Math.PI * (float angle) / float 180
+      let rad = System.Math.PI * (float shipAngle - float viewAngle) / float 180
       ship.Position <- PointF(ship.Position.X + acceleration.X, ship.Position.Y - acceleration.Y)
 
+      ship.Moving <- pressedKeys.Contains(Keys.W)
+
       acceleration.X <-
-        if pressedKeys.Contains(Keys.W) then
+        if ship.Moving then
           acceleration.X + (0.2f * cos(single(rad)))
         elif (acceleration.X > 0.f) then
           acceleration.X - (maxAcceleration / single maxTicks)
@@ -47,7 +51,7 @@ type LWCContainer() as this =
           acceleration.X + (maxAcceleration / single maxTicks)
 
       acceleration.Y <-
-        if pressedKeys.Contains(Keys.W) then
+        if ship.Moving then
           acceleration.Y + (0.2f * sin(single(rad)))
         elif (acceleration.Y > 0.f) then
           acceleration.Y - (maxAcceleration / single maxTicks)
@@ -70,12 +74,12 @@ type LWCContainer() as this =
         | Keys.D ->
           ship.WV.TranslateW(cx, cy)
           ship.WV.RotateW(6.f)
-          angle <- angle - 6
+          shipAngle <- shipAngle - 6
           ship.WV.TranslateW(-cx, -cy)
         | Keys.A ->
           ship.WV.TranslateW(cx, cy)
           ship.WV.RotateW(-6.f)
-          angle <- angle + 6
+          shipAngle <- shipAngle + 6
           ship.WV.TranslateW(-cx, -cy)
         | _ -> ()
       )
@@ -118,6 +122,10 @@ type LWCContainer() as this =
           c.WV.RotateV(5.f)
         c.WV.TranslateV(-client.Width / 2 |> single, -client.Height / 2 |> single)
     )
+    if (direction = "clockwise") then
+      viewAngle <- viewAngle + 5
+    else
+      viewAngle <- viewAngle - 5
   
   member this.ZoomView(sign) =
     controls |> Seq.iter(fun c ->
@@ -225,7 +233,7 @@ and Button() =
     let g = e.Graphics
     g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
     let buttonColor = new SolidBrush(bgcolor)
-    let triangleColor = Brushes.White
+    let triangleColor = new SolidBrush(Color.FromArgb(140, 140, 140))
     match op with
     | "up" ->
       let triangle = [| Point(0, int this.Height); Point(int this.Width / 2, 0); Point(int this.Width, int this.Height) |]
@@ -264,11 +272,22 @@ and Button() =
 and Ship() =
   inherit LWCControl()
 
+  let image = Image.FromFile("MidTerm/img/millennium_falcon.png")
+  let fire = Image.FromFile("MidTerm/img/millennium_falcon_fire.png")
+
+  let mutable moving = false
+
+  member this.Moving
+    with get() = moving
+    and set(v) = moving <- v
+
   override this.OnPaint(e) =
     let g = e.Graphics
     g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
-    let image = Image.FromFile("MidTerm/img/millennium_falcon.png")
-    g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
+    if (moving) then
+      g.DrawImage(fire, 0.f, 0.f, this.Width, this.Height)
+    else
+      g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
     
 // Planet
 and Planet() =

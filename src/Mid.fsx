@@ -5,7 +5,7 @@ open System.Windows.Forms
 
 open Components
 
-let form = new Form(Text="MidTerm Michele Zoncheddu", Size=Size(1200, 600), StartPosition=FormStartPosition.CenterScreen)
+let form = new Form(Text="MidTerm - Michele Zoncheddu", Size=Size(1200, 600), StartPosition=FormStartPosition.CenterScreen)
 let container = new LWCContainer(Dock=DockStyle.Fill)
 let background = Image.FromFile("MidTerm/img/background.jpg")
 container.BackgroundImage <- background
