@@ -44,8 +44,8 @@ type WVMatrix() =
 
 // Control
 type LWCControl() =
-  let wv = WVMatrix() // matrice mondo-vista
-  let mutable pos = PointF() // angolo in alto a sinistra
+  let wv = WVMatrix()
+  let mutable pos = PointF()
   let mutable size = SizeF(0.f, 0.f)
 
   let mutable parent : UserControl option = None
@@ -56,7 +56,7 @@ type LWCControl() =
     with get() = parent
     and set(v) = parent <- v
 
-  abstract OnPaint : PaintEventArgs -> unit // return unit perche' le callback non resituiscono nulla
+  abstract OnPaint : PaintEventArgs -> unit
   default this.OnPaint(e) = ()
 
   abstract OnMouseDown : MouseEventArgs -> unit
@@ -87,9 +87,9 @@ type LWCControl() =
   member this.Position
     with get() = pos
     and set(v) =
-      wv.TranslateV(pos.X, pos.Y) // traslo la vista
-      pos <- v // applico le trasformazioni
-      wv.TranslateV(-pos.X, -pos.Y) // ripristino la vista
+      wv.TranslateV(pos.X, pos.Y)
+      pos <- v
+      wv.TranslateV(-pos.X, -pos.Y)
       this.Invalidate()
   
   member this.PositionInt with get() = Point(int pos.X, int pos.Y)

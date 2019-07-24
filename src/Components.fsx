@@ -1,96 +1,102 @@
 #load "LWC.fsx"
 
-open LWC
-
 open System.Windows.Forms
 open System.Drawing
+open System
+
+open LWC
 
 // Container
 type LWCContainer() as this =
   inherit UserControl()
-  
-  let arrowSize = SizeF(20.f, 20.f)
-  let buttonSize = SizeF(100.f, 30.f)
-  let planetSize = SizeF(120.f, 120.f)
-
-  let up = LWButton(Position=PointF(30.f, 10.f), Size=arrowSize, Op="up")
-  let down = LWButton(Position=PointF(30.f, 50.f), Size=arrowSize, Op="down")
-  let left = LWButton(Position=PointF(10.f, 30.f), Size=arrowSize, Op="left")
-  let right = LWButton(Position=PointF(50.f, 30.f), Size=arrowSize, Op="right")
-
-  let create = LWButton(Position=PointF(10.f, 80.f), Size=buttonSize, Op="create planet")
-  let rotateCW = LWButton(Position=PointF(10.f, 120.f), Size=buttonSize, Op="rotate cw")
-  let rotateCCW = LWButton(Position=PointF(10.f, 160.f), Size=buttonSize, Op="rotate ccw")
-  let zoomUp = LWButton(Position=PointF(10.f, 200.f), Size=buttonSize, Op="zoom +")
-  let zoomDown = LWButton(Position=PointF(10.f, 240.f), Size=buttonSize, Op="zoom -")
-
-  let ship = LWShip(Position=PointF(100.f, 100.f), Size=SizeF(60.f, 83.f))
 
   let mutable drag = None
-  let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
-  let keys = ResizeArray<Keys>()
+  let controls = Collections.ObjectModel.ObservableCollection<LWCControl>()
+  let pressedKeys = ResizeArray<Keys>()
 
-  let timer = new Timer(Interval=5)
-  let mutable acceleration = 0.f
+  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(60.f, 83.f))
+  let planetSize = SizeF(200.f, 200.f)
+
+  let timer = new Timer(Interval=15)
+  let mutable acceleration = PointF(0.f, 0.f)
+  let maxAcceleration = 8.f
+  let mutable angle = 90
   let mutable ticks = 0
   let maxTicks = 200
 
   do
+    this.SetStyle(ControlStyles.AllPaintingInWmPaint ||| ControlStyles.OptimizedDoubleBuffer, true)
     controls.CollectionChanged.Add(fun e ->
       for i in e.NewItems do
         (i :?> LWCControl).Parent <- Some(this :> UserControl)
+      let i = controls.IndexOf(ship)
+      if (i <> controls.Count - 1) then
+        controls.Move(i, controls.Count - 1)
     )
-    this.SetStyle(ControlStyles.AllPaintingInWmPaint ||| ControlStyles.OptimizedDoubleBuffer, true)
-    controls.Add(up)
-    controls.Add(down)
-    controls.Add(left)
-    controls.Add(right)
-    controls.Add(rotateCW)
-    controls.Add(rotateCCW)
-    controls.Add(zoomUp)
-    controls.Add(zoomDown)
-    controls.Add(create)
     controls.Add(ship)
 
     timer.Tick.Add(fun _ ->
-      ship.WV.TranslateW(0.f, - single acceleration)
-      printfn "%A" acceleration
-      if (keys.Count <> 0) then
-        ticks <- 0
-      if (keys.Contains(Keys.W)) then
-        acceleration <- acceleration + 0.2f
-      else
-        acceleration <- acceleration - (10.f / single maxTicks) // maxacceleration / maxticks
+      let rad = Math.PI * (float angle) / float 180
+      ship.Position <- PointF(ship.Position.X + acceleration.X, ship.Position.Y - acceleration.Y)
 
-      if (acceleration > 10.f) then
-        acceleration <- 10.f
-      else if (acceleration < 0.f) then
-        acceleration <- 0.f
+      acceleration.X <-
+        if pressedKeys.Contains(Keys.W) then
+          acceleration.X + (0.2f * cos(single(rad)))
+        elif (acceleration.X > 0.f) then
+          acceleration.X - (maxAcceleration / single maxTicks)
+        else
+          acceleration.X + (maxAcceleration / single maxTicks)
+
+      acceleration.Y <-
+        if pressedKeys.Contains(Keys.W) then
+          acceleration.Y + (0.2f * sin(single(rad)))
+        elif (acceleration.Y > 0.f) then
+          acceleration.Y - (maxAcceleration / single maxTicks)
+        else
+          acceleration.Y + (maxAcceleration / single maxTicks)
+
+      if (acceleration.X > maxAcceleration) then
+        acceleration.X <- maxAcceleration
+      elif (acceleration.X < -maxAcceleration) then
+        acceleration.X <- -maxAcceleration
+
+      if (acceleration.Y > maxAcceleration) then
+        acceleration.Y <- maxAcceleration
+      elif (acceleration.Y < -maxAcceleration) then
+        acceleration.Y <- -maxAcceleration
 
       let cx, cy = ship.Width / 2.f, ship.Height / 2.f
-      keys |> Seq.iter(fun c ->
+      pressedKeys |> Seq.iter(fun c ->
         match c with
         | Keys.D ->
           ship.WV.TranslateW(cx, cy)
           ship.WV.RotateW(6.f)
+          angle <- angle - 6
           ship.WV.TranslateW(-cx, -cy)
         | Keys.A ->
           ship.WV.TranslateW(cx, cy)
           ship.WV.RotateW(-6.f)
+          angle <- angle + 6
           ship.WV.TranslateW(-cx, -cy)
         | _ -> ()
       )
-      this.Invalidate()
-      ticks <- ticks + 1
-      if (ticks = maxTicks) then
-        acceleration <- 0.f
-        timer.Stop()
+      if (pressedKeys.Count > 0) then
+        ticks <- 0
+      else
+        ticks <- ticks + 1
+        if (ticks = maxTicks) then
+          timer.Stop()
+          acceleration.X <- 0.f
+          acceleration.Y <- 0.f
+      this.Invalidate()       
     )
+  
+  member this.Controls with get() = controls
 
   member this.MoveView(direction) =
     controls |> Seq.iter(fun c ->
       match c with
-      | :? LWButton -> ()
+      | :? Button -> ()
       | _ ->
         match direction with
         | "up" -> c.WV.TranslateV(0.f, -10.f)
@@ -103,7 +109,7 @@ type LWCContainer() as this =
   member this.RotateView(direction) =
     controls |> Seq.iter(fun c ->
       match c with
-      | :? LWButton -> ()
+      | :? Button -> ()
       | _ ->
         let client = this.ClientSize
         c.WV.TranslateV(client.Width / 2 |> single, client.Height / 2 |> single)
@@ -117,7 +123,7 @@ type LWCContainer() as this =
   member this.ZoomView(sign) =
     controls |> Seq.iter(fun c ->
       match c with
-      | :? LWButton -> ()
+      | :? Button -> ()
       | _ ->
         let cx, cy = this.ClientSize.Width / 2 |> single, this.ClientSize.Height / 2 |> single
         // po is the difference between the control center and the current control vertex 
@@ -136,7 +142,7 @@ type LWCContainer() as this =
     dialog.Filter <- "|*.jpg;*.jpeg;*.gif;*.png"
     if dialog.ShowDialog() = DialogResult.OK then
       let image : Bitmap = new Bitmap(dialog.FileName)
-      controls.Add(LWPlanet(
+      controls.Add(Planet(
                     Position=PointF(
                               single this.Width / 2.f - planetSize.Width / 2.f,
                               single this.Height / 2.f - planetSize.Height / 2.f),
@@ -149,7 +155,7 @@ type LWCContainer() as this =
     match c with
     | Some c ->
       match c with
-      | :? LWButton -> () // button not draggable
+      | :? Button -> () // button not draggable
       | _ ->
         let dx, dy = e.X - int c.Left, e.Y - int c.Top
         drag <- Some(c, dx, dy)
@@ -158,8 +164,6 @@ type LWCContainer() as this =
       c.OnMouseDown(evt)
       this.Invalidate()
     | None -> ()
-    let i = controls.IndexOf(ship)
-    controls.Move(i, controls.Count - 1)
 
   override this.OnMouseMove(e) =
     let c = controls |> Seq.tryFindBack(fun c -> c.HitTest(e.Location))
@@ -198,18 +202,15 @@ type LWCContainer() as this =
 
   override this.OnKeyDown(e) =
     let keyCode = e.KeyCode
-    if (not (keys.Contains(keyCode))) then
-      keys.Add(keyCode)
-    if (not timer.Enabled) then
-      timer.Start()
+    if not (pressedKeys.Contains(keyCode)) then
+      pressedKeys.Add(keyCode)
+    timer.Start()
 
   override this.OnKeyUp(e) =
-    let keyCode = e.KeyCode
-    if (keys.Contains(keyCode)) then
-      keys.Remove(keyCode) |> ignore
+    pressedKeys.Remove(e.KeyCode) |> ignore
 
-// Buttons
-and LWButton() =
+// Button
+and Button() =
   inherit LWCControl()
 
   let mutable op = "none"
@@ -259,7 +260,7 @@ and LWButton() =
     | None -> ()
 
 // Space ship
-and LWShip() =
+and Ship() =
   inherit LWCControl()
 
   override this.OnPaint(e) =
@@ -269,7 +270,7 @@ and LWShip() =
     g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
     
 // Planet
-and LWPlanet() =
+and Planet() =
   inherit LWCControl()
 
   let mutable image = null
