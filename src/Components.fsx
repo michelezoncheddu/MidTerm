@@ -1,8 +1,8 @@
 #load "LWC.fsx"
 
-open System.Windows.Forms
-open System.Drawing
 open System
+open System.Drawing
+open System.Windows.Forms
 
 open LWC
 
@@ -224,22 +224,23 @@ and Button() =
   override this.OnPaint(e) =
     let g = e.Graphics
     g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
-    let brush = new SolidBrush(bgcolor)
+    let buttonColor = new SolidBrush(bgcolor)
+    let triangleColor = Brushes.White
     match op with
     | "up" ->
       let triangle = [| Point(0, int this.Height); Point(int this.Width / 2, 0); Point(int this.Width, int this.Height) |]
-      g.FillPolygon(Brushes.Black, triangle)
+      g.FillPolygon(triangleColor, triangle)
     | "down" ->
       let triangle = [| Point(0, 0); Point(int this.Width / 2, int this.Height); Point(int this.Width, 0) |]
-      g.FillPolygon(Brushes.Black, triangle)
+      g.FillPolygon(triangleColor, triangle)
     | "left" ->
       let triangle = [| Point(0, int this.Height / 2); Point(int this.Width, int this.Height); Point(int this.Width, 0) |]
-      g.FillPolygon(Brushes.Black, triangle)
+      g.FillPolygon(triangleColor, triangle)
     | "right" ->
       let triangle = [| Point(0, 0); Point(0, int this.Height); Point(int this.Width, int this.Height / 2) |]
-      g.FillPolygon(Brushes.Black, triangle)
+      g.FillPolygon(triangleColor, triangle)
     | _ ->
-      g.FillRectangle(brush, 0.f, 0.f, this.Width, this.Height)
+      g.FillRectangle(buttonColor, 0.f, 0.f, this.Width, this.Height)
       g.DrawString(op.ToUpper(), font, Brushes.White, 5.f, 7.f)
 
   override this.OnMouseDown(e) =
@@ -266,7 +267,7 @@ and Ship() =
   override this.OnPaint(e) =
     let g = e.Graphics
     g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
-    let image = Image.FromFile("MidTerm/img/millennium-falcon.png")
+    let image = Image.FromFile("MidTerm/img/millennium_falcon.png")
     g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
     
 // Planet

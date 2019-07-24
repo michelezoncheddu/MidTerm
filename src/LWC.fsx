@@ -1,5 +1,5 @@
-open System.Windows.Forms
 open System.Drawing
+open System.Windows.Forms
 
 // Library
 type WVMatrix() =
