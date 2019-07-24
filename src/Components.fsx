@@ -9,9 +9,11 @@ open LWC
 type LWCContainer() as this =
   inherit UserControl()
 
-  let mutable drag = None
   let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
   let pressedKeys = ResizeArray<Keys>()
+
+  let mutable drag = None
+  let mutable op = "none"
 
   let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(90.f, 180.f))
   
@@ -97,10 +99,14 @@ type LWCContainer() as this =
           timer.Stop()
           acceleration.X <- 0.f
           acceleration.Y <- 0.f
-      this.Invalidate()       
+      this.Invalidate()
     )
   
   member this.Controls with get() = controls
+
+  member this.Op
+    with get() = op
+    and set(v) = op <- v
 
   member this.MoveView(direction) =
     controls |> Seq.iter(fun c ->
@@ -138,7 +144,7 @@ type LWCContainer() as this =
         let cx, cy = this.ClientSize.Width / 2 |> single, this.ClientSize.Height / 2 |> single
         // po is the difference between the control center and the current control vertex 
         let po = PointF(cx, cy) |> c.WV.TransformPointV
-        if (sign = "up") then
+        if (sign = "+") then
           c.WV.ScaleW(1.1f, 1.1f)
         else
           c.WV.ScaleW(1.f / 1.1f, 1.f / 1.1f)
@@ -146,7 +152,7 @@ type LWCContainer() as this =
         let pn = PointF(cx, cy) |> c.WV.TransformPointV
         c.WV.TranslateW(pn.X - po.X, pn.Y - po.Y)
     )
-    viewZoom <- if (sign = "up") then viewZoom * 1.1f else viewZoom / 1.1f
+    viewZoom <- if (sign = "+") then viewZoom * 1.1f else viewZoom / 1.1f
 
   member this.CreatePlanet() =
     let dialog = new OpenFileDialog()
@@ -169,8 +175,13 @@ type LWCContainer() as this =
       match c with
       | :? Button -> () // button not draggable
       | _ ->
-        let dx, dy = e.X - int c.Left, e.Y - int c.Top
-        drag <- Some(c, dx, dy)
+        if (op = "zoom + object") then
+          c.WV.ScaleW(1.1f, 1.1f)
+        elif (op = "zoom - object") then
+          c.WV.ScaleW(1.f / 1.1f, 1.f / 1.1f)
+        else
+          let dx, dy = e.X - int c.Left, e.Y - int c.Top
+          drag <- Some(c, dx, dy)
       let p = c.WV.TransformPointV(PointF(single e.X, single e.Y))
       let evt = MouseEventArgs(e.Button, e.Clicks, int p.X, int p.Y, e.Delta)
       c.OnMouseDown(evt)
@@ -264,11 +275,13 @@ and Button() =
       | "down" -> parent.MoveView("down")
       | "left" -> parent.MoveView("left")
       | "right" -> parent.MoveView("right")
+      | "create planet" -> parent.CreatePlanet()
       | "rotate cw" -> parent.RotateView("clockwise")
       | "rotate ccw" -> parent.RotateView("counterclockwise")
-      | "zoom +" -> parent.ZoomView("up")
-      | "zoom -" -> parent.ZoomView("down")
-      | "create planet" -> parent.CreatePlanet()
+      | "zoom +" -> parent.ZoomView("+")
+      | "zoom -" -> parent.ZoomView("-")
+      | "zoom + object" -> parent.Op <- if (parent.Op = "zoom + object") then "none" else "zoom + object"
+      | "zoom - object" -> parent.Op <- if (parent.Op = "zoom - object") then "none" else "zoom - object"
       | _ -> printfn "%A not recognized" op
     | None -> ()
 

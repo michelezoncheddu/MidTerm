@@ -24,6 +24,8 @@ let rotateCW = Button(Position=PointF(10.f, 120.f), Size=buttonSize, Op="rotate 
 let rotateCCW = Button(Position=PointF(10.f, 160.f), Size=buttonSize, Op="rotate ccw")
 let zoomUp = Button(Position=PointF(10.f, 200.f), Size=buttonSize, Op="zoom +")
 let zoomDown = Button(Position=PointF(10.f, 240.f), Size=buttonSize, Op="zoom -")
+let zoomUpObject = Button(Position=PointF(10.f, 280.f), Size=buttonSize, Op="zoom + object")
+let zoomDownObject = Button(Position=PointF(10.f, 320.f), Size=buttonSize, Op="zoom - object")
 
 controls.Add(up)
 controls.Add(down)
@@ -34,6 +36,8 @@ controls.Add(rotateCW)
 controls.Add(rotateCCW)
 controls.Add(zoomUp)
 controls.Add(zoomDown)
+controls.Add(zoomUpObject)
+controls.Add(zoomDownObject)
 
 form.Controls.Add(container)
 form.Show()
