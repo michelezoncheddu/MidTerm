@@ -15,10 +15,10 @@ type LWCContainer() as this =
   let mutable drag = None
   let mutable op = "none"
 
-  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(90.f, 180.f))
-  
   let planetSize = SizeF(300.f, 300.f)
 
+  let ship = Ship(Position=PointF(600.f - 45.f, 300.f - 90.f), Size=SizeF(90.f, 180.f))
+  
   let timer = new Timer(Interval=15)
   let mutable acceleration = PointF(0.f, 0.f)
   let maxAcceleration = 7.f
@@ -126,13 +126,12 @@ type LWCContainer() as this =
       match c with
       | :? Button -> ()
       | _ ->
-        let client = this.ClientSize
-        c.WV.TranslateV(client.Width / 2 |> single, client.Height / 2 |> single)
+        c.WV.TranslateV(this.Width / 2 |> single, this.Height / 2 |> single)
         if (direction = "clockwise") then
           c.WV.RotateV(-5.f)
         else
           c.WV.RotateV(5.f)
-        c.WV.TranslateV(-client.Width / 2 |> single, -client.Height / 2 |> single)
+        c.WV.TranslateV(-this.Width / 2 |> single, -this.Height / 2 |> single)
     )
     viewAngle <- if (direction = "clockwise") then viewAngle + 5 else viewAngle - 5
   
@@ -141,7 +140,7 @@ type LWCContainer() as this =
       match c with
       | :? Button -> ()
       | _ ->
-        let cx, cy = this.ClientSize.Width / 2 |> single, this.ClientSize.Height / 2 |> single
+        let cx, cy = this.Width / 2 |> single, this.Height / 2 |> single
         // po is the difference between the control center and the current control vertex 
         let po = PointF(cx, cy) |> c.WV.TransformPointV
         if (sign = "+") then
@@ -156,14 +155,15 @@ type LWCContainer() as this =
 
   member this.CreatePlanet() =
     let dialog = new OpenFileDialog()
+    let random = System.Random()
     dialog.Filter <- "|*.jpg;*.jpeg;*.gif;*.png"
     if dialog.ShowDialog() = DialogResult.OK then
       let image = new Bitmap(dialog.FileName)
       controls.Add(Planet(
                     Position=PointF(
-                              single this.Width / 2.f - planetSize.Width / 2.f,
-                              single this.Height / 2.f - planetSize.Height / 2.f),
-                    Size=planetSize,
+                              planetSize.Width / 2.f + single (random.Next(this.Width - int planetSize.Width)),
+                              planetSize.Height / 2.f + single (random.Next(this.Height - int planetSize.Height))),
+                    Size=SizeF(planetSize.Width * viewZoom, planetSize.Height * viewZoom),
                     Shape="circle",
                     Image=image)
                   )
@@ -195,7 +195,7 @@ type LWCContainer() as this =
       let p = c.WV.TransformPointV(PointF(single e.X, single e.Y))
       let evt = MouseEventArgs(e.Button, e.Clicks, int p.X, int p.Y, e.Delta)
       c.OnMouseMove(evt)
-      this.Invalidate()      
+      this.Invalidate()
     | None -> ()
     match drag with
     | Some(c, dx, dy) ->
@@ -235,14 +235,13 @@ type LWCContainer() as this =
       let shipCenter = PointF(ship.Width / 2.f, ship.Height / 2.f) |> ship.WV.TransformPointW
       let c = controls |> Seq.tryFindBack(fun c -> this.HitTestPlanet(c, shipCenter))
       match c with
-      | Some planet ->
-        //let planetCenter = PointF(planet.Width / 2.f, planet.Height / 2.f) |> planet.WV.TransformPointW
-        //ship.WV.TranslateW(ship.Position.X - planetCenter.X, ship.Position.Y - planetCenter.Y)
-        let planetCenter = PointF(planet.Position.X + planet.Width / 2.f, planet.Position.Y + planet.Height / 2.f)
-        ship.Position <- PointF(single planetCenter.X - ship.Width / 2.f, single planetCenter.Y - ship.Height / 2.f)
+      | Some _ ->
+        //let planetCenter = PointF(planet.Position.X + planet.Width / 2.f, planet.Position.Y + planet.Height / 2.f)
+        //ship.Position <- PointF(single planetCenter.X - ship.Width / 2.f, single planetCenter.Y - ship.Height / 2.f)
         ship.State <- "landed"
         acceleration <- PointF(0.f, 0.f)
         timer.Stop()
+        ship.Invalidate()
       | None -> ()
     elif not (pressedKeys.Contains(keyCode)) then
       pressedKeys.Add(keyCode)
