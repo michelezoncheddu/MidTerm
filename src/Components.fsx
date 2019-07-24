@@ -13,15 +13,16 @@ type LWCContainer() as this =
   let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
   let pressedKeys = ResizeArray<Keys>()
 
-  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(75.f, 150.f))
+  let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(90.f, 180.f))
   
-  let planetSize = SizeF(200.f, 200.f)
+  let planetSize = SizeF(300.f, 300.f)
 
   let timer = new Timer(Interval=15)
   let mutable acceleration = PointF(0.f, 0.f)
   let maxAcceleration = 7.f
   let mutable shipAngle = 90
   let mutable viewAngle = 0
+  let mutable viewZoom = 1.f
   let mutable ticks = 0
   let maxTicks = 200
 
@@ -38,7 +39,6 @@ type LWCContainer() as this =
 
     timer.Tick.Add(fun _ ->
       let rad = System.Math.PI * (float shipAngle - float viewAngle) / float 180
-      ship.Position <- PointF(ship.Position.X + acceleration.X, ship.Position.Y - acceleration.Y)
 
       ship.Moving <- pressedKeys.Contains(Keys.W)
 
@@ -62,11 +62,17 @@ type LWCContainer() as this =
         acceleration.X <- maxAcceleration
       elif (acceleration.X < -maxAcceleration) then
         acceleration.X <- -maxAcceleration
+      elif (abs acceleration.X) <= maxAcceleration / single maxTicks then
+        acceleration.X <- 0.f
 
       if (acceleration.Y > maxAcceleration) then
         acceleration.Y <- maxAcceleration
       elif (acceleration.Y < -maxAcceleration) then
         acceleration.Y <- -maxAcceleration
+      elif (abs acceleration.Y) <= maxAcceleration / single maxTicks then
+        acceleration.Y <- 0.f
+
+      ship.Position <- PointF(ship.Position.X + acceleration.X * viewZoom, ship.Position.Y - acceleration.Y * viewZoom)
 
       let cx, cy = ship.Width / 2.f, ship.Height / 2.f
       pressedKeys |> Seq.iter(fun c ->
@@ -122,10 +128,7 @@ type LWCContainer() as this =
           c.WV.RotateV(5.f)
         c.WV.TranslateV(-client.Width / 2 |> single, -client.Height / 2 |> single)
     )
-    if (direction = "clockwise") then
-      viewAngle <- viewAngle + 5
-    else
-      viewAngle <- viewAngle - 5
+    viewAngle <- if (direction = "clockwise") then viewAngle + 5 else viewAngle - 5
   
   member this.ZoomView(sign) =
     controls |> Seq.iter(fun c ->
@@ -143,12 +146,13 @@ type LWCContainer() as this =
         let pn = PointF(cx, cy) |> c.WV.TransformPointV
         c.WV.TranslateW(pn.X - po.X, pn.Y - po.Y)
     )
+    viewZoom <- if (sign = "up") then viewZoom * 1.1f else viewZoom / 1.1f
 
   member this.CreatePlanet() =
     let dialog = new OpenFileDialog()
     dialog.Filter <- "|*.jpg;*.jpeg;*.gif;*.png"
     if dialog.ShowDialog() = DialogResult.OK then
-      let image : Bitmap = new Bitmap(dialog.FileName)
+      let image = new Bitmap(dialog.FileName)
       controls.Add(Planet(
                     Position=PointF(
                               single this.Width / 2.f - planetSize.Width / 2.f,
@@ -204,6 +208,7 @@ type LWCContainer() as this =
       let bkg = e.Graphics.Save()
       let evt = new PaintEventArgs(e.Graphics, Rectangle(c.PositionInt, c.SizeInt))
       e.Graphics.Transform <- c.WV.WV
+      e.Graphics.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
       c.OnPaint(evt)
       e.Graphics.Restore(bkg)
     )
@@ -222,8 +227,9 @@ and Button() =
   inherit LWCControl()
 
   let mutable op = "none"
-  let bgcolor = Color.DarkGreen
   let font = new Font("Consolas", 9.f)
+  let buttonColor = new SolidBrush(Color.DarkGreen)
+  let triangleColor = new SolidBrush(Color.FromArgb(140, 140, 140))
 
   member this.Op
     with get() = op
@@ -231,9 +237,7 @@ and Button() =
 
   override this.OnPaint(e) =
     let g = e.Graphics
-    g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
-    let buttonColor = new SolidBrush(bgcolor)
-    let triangleColor = new SolidBrush(Color.FromArgb(140, 140, 140))
+    
     match op with
     | "up" ->
       let triangle = [| Point(0, int this.Height); Point(int this.Width / 2, 0); Point(int this.Width, int this.Height) |]
@@ -272,8 +276,8 @@ and Button() =
 and Ship() =
   inherit LWCControl()
 
-  let image = Image.FromFile("MidTerm/img/millennium_falcon.png")
-  let fire = Image.FromFile("MidTerm/img/millennium_falcon_fire.png")
+  let baseImage = Image.FromFile("MidTerm/img/millennium_falcon.png")
+  let movingImage = Image.FromFile("MidTerm/img/millennium_falcon_moving.png")
 
   let mutable moving = false
 
@@ -283,11 +287,10 @@ and Ship() =
 
   override this.OnPaint(e) =
     let g = e.Graphics
-    g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
     if (moving) then
-      g.DrawImage(fire, 0.f, 0.f, this.Width, this.Height)
+      g.DrawImage(movingImage, 0.f, 0.f, this.Width, this.Height)
     else
-      g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
+      g.DrawImage(baseImage, 0.f, 0.f, this.Width, this.Height)
     
 // Planet
 and Planet() =
@@ -300,5 +303,4 @@ and Planet() =
 
   override this.OnPaint(e) =
     let g = e.Graphics
-    g.SmoothingMode <- Drawing2D.SmoothingMode.AntiAlias
     g.DrawImage(image, 0.f, 0.f, this.Width, this.Height)
