@@ -1,6 +1,5 @@
 #load "LWC.fsx"
 
-open System
 open System.Drawing
 open System.Windows.Forms
 
@@ -11,7 +10,7 @@ type LWCContainer() as this =
   inherit UserControl()
 
   let mutable drag = None
-  let controls = Collections.ObjectModel.ObservableCollection<LWCControl>()
+  let controls = System.Collections.ObjectModel.ObservableCollection<LWCControl>()
   let pressedKeys = ResizeArray<Keys>()
 
   let ship = Ship(Position=PointF(200.f, 200.f), Size=SizeF(60.f, 83.f))
@@ -36,7 +35,7 @@ type LWCContainer() as this =
     controls.Add(ship)
 
     timer.Tick.Add(fun _ ->
-      let rad = Math.PI * (float angle) / float 180
+      let rad = System.Math.PI * (float angle) / float 180
       ship.Position <- PointF(ship.Position.X + acceleration.X, ship.Position.Y - acceleration.Y)
 
       acceleration.X <-
@@ -147,6 +146,7 @@ type LWCContainer() as this =
                               single this.Width / 2.f - planetSize.Width / 2.f,
                               single this.Height / 2.f - planetSize.Height / 2.f),
                     Size=planetSize,
+                    Shape="circle",
                     Image=image)
                   )
 

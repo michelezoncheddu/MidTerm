@@ -47,10 +47,13 @@ type LWCControl() =
   let wv = WVMatrix()
   let mutable pos = PointF()
   let mutable size = SizeF(0.f, 0.f)
+  let mutable shape = "rectangle"
 
   let mutable parent : UserControl option = None
   
   member this.WV with get() = wv
+
+  member this.Shape with set(v) = shape <- v
 
   member this.Parent
     with get() = parent
@@ -74,9 +77,15 @@ type LWCControl() =
     | None -> ()
 
   member this.HitTest(p:Point) =
-    let pt = wv.TransformPointV(PointF(single p.X, single p.Y))
-    let boundingbox = RectangleF(0.f, 0.f, size.Width, size.Height)
-    boundingbox.Contains(pt)
+    let point = wv.TransformPointV(PointF(single p.X, single p.Y))
+    match shape with
+    | "rectangle" ->
+      let boundingBox = RectangleF(0.f, 0.f, size.Width, size.Height)
+      boundingBox.Contains(point)
+    | "circle" ->
+      let center = PointF(size.Width / 2.f, size.Height / 2.f)
+      sqrt(pown (center.X - point.X) 2 + pown (center.Y - point.Y) 2) < size.Width / 2.f
+    | _ -> false    
 
   member this.Size
     with get() = size
