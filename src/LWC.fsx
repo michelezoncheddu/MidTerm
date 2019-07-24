@@ -77,7 +77,7 @@ type LWCControl() =
     | None -> ()
 
   member this.HitTest(p:Point) =
-    let point = wv.TransformPointV(PointF(single p.X, single p.Y))
+    let point = PointF(single p.X, single p.Y) |> wv.TransformPointV
     match shape with
     | "rectangle" ->
       let boundingBox = RectangleF(0.f, 0.f, size.Width, size.Height)

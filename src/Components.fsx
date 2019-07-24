@@ -42,10 +42,10 @@ type LWCContainer() as this =
     timer.Tick.Add(fun _ ->
       let rad = System.Math.PI * (float shipAngle - float viewAngle) / float 180
 
-      ship.Moving <- pressedKeys.Contains(Keys.W)
+      ship.State <- if (pressedKeys.Contains(Keys.W)) then "moving" else "base"
 
       acceleration.X <-
-        if ship.Moving then
+        if (ship.State = "moving") then
           acceleration.X + (0.2f * cos(single(rad)))
         elif (acceleration.X > 0.f) then
           acceleration.X - (maxAcceleration / single maxTicks)
@@ -53,7 +53,7 @@ type LWCContainer() as this =
           acceleration.X + (maxAcceleration / single maxTicks)
 
       acceleration.Y <-
-        if ship.Moving then
+        if (ship.State = "moving") then
           acceleration.Y + (0.2f * sin(single(rad)))
         elif (acceleration.Y > 0.f) then
           acceleration.Y - (maxAcceleration / single maxTicks)
@@ -99,7 +99,7 @@ type LWCContainer() as this =
           timer.Stop()
           acceleration.X <- 0.f
           acceleration.Y <- 0.f
-      this.Invalidate()
+      ship.Invalidate()
     )
   
   member this.Controls with get() = controls
@@ -224,11 +224,29 @@ type LWCContainer() as this =
       e.Graphics.Restore(bkg)
     )
 
+  member this.HitTestPlanet(c : LWCControl, point : PointF) =
+    match c with
+    | :? Planet -> c.HitTest(Point(int point.X, int point.Y))
+    | _ -> false
+
   override this.OnKeyDown(e) =
     let keyCode = e.KeyCode
-    if not (pressedKeys.Contains(keyCode)) then
+    if (keyCode = Keys.Space) then
+      let shipCenter = PointF(ship.Width / 2.f, ship.Height / 2.f) |> ship.WV.TransformPointW
+      let c = controls |> Seq.tryFindBack(fun c -> this.HitTestPlanet(c, shipCenter))
+      match c with
+      | Some planet ->
+        //let planetCenter = PointF(planet.Width / 2.f, planet.Height / 2.f) |> planet.WV.TransformPointW
+        //ship.WV.TranslateW(ship.Position.X - planetCenter.X, ship.Position.Y - planetCenter.Y)
+        let planetCenter = PointF(planet.Position.X + planet.Width / 2.f, planet.Position.Y + planet.Height / 2.f)
+        ship.Position <- PointF(single planetCenter.X - ship.Width / 2.f, single planetCenter.Y - ship.Height / 2.f)
+        ship.State <- "landed"
+        acceleration <- PointF(0.f, 0.f)
+        timer.Stop()
+      | None -> ()
+    elif not (pressedKeys.Contains(keyCode)) then
       pressedKeys.Add(keyCode)
-    timer.Start()
+      timer.Start()
 
   override this.OnKeyUp(e) =
     pressedKeys.Remove(e.KeyCode) |> ignore
@@ -291,19 +309,21 @@ and Ship() =
 
   let baseImage = Image.FromFile("MidTerm/img/millennium_falcon.png")
   let movingImage = Image.FromFile("MidTerm/img/millennium_falcon_moving.png")
+  let landedImage = Image.FromFile("MidTerm/img/millennium_falcon_landed.png")
 
-  let mutable moving = false
+  let mutable state = "base"
 
-  member this.Moving
-    with get() = moving
-    and set(v) = moving <- v
+  member this.State
+    with get() = state
+    and set(v) = state <- v
 
   override this.OnPaint(e) =
     let g = e.Graphics
-    if (moving) then
-      g.DrawImage(movingImage, 0.f, 0.f, this.Width, this.Height)
-    else
-      g.DrawImage(baseImage, 0.f, 0.f, this.Width, this.Height)
+    match state with
+    | "base" ->  g.DrawImage(baseImage, 0.f, 0.f, this.Width, this.Height)
+    | "moving" -> g.DrawImage(movingImage, 0.f, 0.f, this.Width, this.Height)
+    | "landed" -> g.DrawImage(landedImage, 0.f, 0.f, this.Width, this.Height)
+    | _ -> ()
     
 // Planet
 and Planet() =
