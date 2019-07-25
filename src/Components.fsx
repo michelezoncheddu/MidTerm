@@ -20,8 +20,8 @@ type LWCContainer() as this =
   let ship = Ship(Position=PointF(600.f - 45.f, 300.f - 90.f), Size=SizeF(90.f, 180.f))
   
   let timer = new Timer(Interval=15)
-  let mutable acceleration = PointF(0.f, 0.f)
-  let maxAcceleration = 7.f
+  let mutable speed = PointF(0.f, 0.f)
+  let maxSpeed = 7.f
   let mutable shipAngle = 90
   let mutable viewAngle = 0
   let mutable viewZoom = 1.f
@@ -44,37 +44,37 @@ type LWCContainer() as this =
 
       ship.State <- if (pressedKeys.Contains(Keys.W)) then "moving" else "base"
 
-      acceleration.X <-
+      speed.X <-
         if (ship.State = "moving") then
-          acceleration.X + (0.2f * cos(single(rad)))
-        elif (acceleration.X > 0.f) then
-          acceleration.X - (maxAcceleration / single maxTicks)
+          speed.X + (0.2f * cos(single(rad)))
+        elif (speed.X > 0.f) then
+          speed.X - (maxSpeed / single maxTicks)
         else
-          acceleration.X + (maxAcceleration / single maxTicks)
+          speed.X + (maxSpeed / single maxTicks)
 
-      acceleration.Y <-
+      speed.Y <-
         if (ship.State = "moving") then
-          acceleration.Y + (0.2f * sin(single(rad)))
-        elif (acceleration.Y > 0.f) then
-          acceleration.Y - (maxAcceleration / single maxTicks)
+          speed.Y + (0.2f * sin(single(rad)))
+        elif (speed.Y > 0.f) then
+          speed.Y - (maxSpeed / single maxTicks)
         else
-          acceleration.Y + (maxAcceleration / single maxTicks)
+          speed.Y + (maxSpeed / single maxTicks)
 
-      if (acceleration.X > maxAcceleration) then
-        acceleration.X <- maxAcceleration
-      elif (acceleration.X < -maxAcceleration) then
-        acceleration.X <- -maxAcceleration
-      elif (abs acceleration.X) <= maxAcceleration / single maxTicks then
-        acceleration.X <- 0.f
+      if (speed.X > maxSpeed) then
+        speed.X <- maxSpeed
+      elif (speed.X < -maxSpeed) then
+        speed.X <- -maxSpeed
+      elif (abs speed.X) <= maxSpeed / single maxTicks then
+        speed.X <- 0.f
 
-      if (acceleration.Y > maxAcceleration) then
-        acceleration.Y <- maxAcceleration
-      elif (acceleration.Y < -maxAcceleration) then
-        acceleration.Y <- -maxAcceleration
-      elif (abs acceleration.Y) <= maxAcceleration / single maxTicks then
-        acceleration.Y <- 0.f
+      if (speed.Y > maxSpeed) then
+        speed.Y <- maxSpeed
+      elif (speed.Y < -maxSpeed) then
+        speed.Y <- -maxSpeed
+      elif (abs speed.Y) <= maxSpeed / single maxTicks then
+        speed.Y <- 0.f
 
-      ship.Position <- PointF(ship.Position.X + acceleration.X * viewZoom, ship.Position.Y - acceleration.Y * viewZoom)
+      ship.Position <- PointF(ship.Position.X + speed.X * viewZoom, ship.Position.Y - speed.Y * viewZoom)
 
       let cx, cy = ship.Width / 2.f, ship.Height / 2.f
       pressedKeys |> Seq.iter(fun c ->
@@ -97,8 +97,8 @@ type LWCContainer() as this =
         ticks <- ticks + 1
         if (ticks = maxTicks) then
           timer.Stop()
-          acceleration.X <- 0.f
-          acceleration.Y <- 0.f
+          speed.X <- 0.f
+          speed.Y <- 0.f
       ship.Invalidate()
     )
   
@@ -239,7 +239,7 @@ type LWCContainer() as this =
         //let planetCenter = PointF(planet.Position.X + planet.Width / 2.f, planet.Position.Y + planet.Height / 2.f)
         //ship.Position <- PointF(single planetCenter.X - ship.Width / 2.f, single planetCenter.Y - ship.Height / 2.f)
         ship.State <- "landed"
-        acceleration <- PointF(0.f, 0.f)
+        speed <- PointF(0.f, 0.f)
         timer.Stop()
         ship.Invalidate()
       | None -> ()
